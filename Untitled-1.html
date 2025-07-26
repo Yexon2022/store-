@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ventas de Recargas</title>
+    <!-- CDN de Tailwind CSS para estilos de utilidad -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- CDN de React y ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- CDN de Babel para transpilar JSX en el navegador -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Configuración de la fuente Inter para una estética moderna -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Definición de la animación para los mensajes de éxito */
+        @keyframes fade-in-down {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in-down {
+            animation: fade-in-down 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+    <!-- Div donde se montará tu aplicación React -->
+    <div id="root"></div>
+
+    <!-- Script de JavaScript de la aplicación (ahora con type="text/babel") -->
+    <script type="text/babel">
+        // Importa React y ReactDOM desde las variables globales expuestas por los CDNs
+        const { useState, useEffect } = React;
+        const ReactDOM = ReactDOM; // ReactDOM ya está disponible globalmente
+
+        // Main App component
+        function App() {
+            // State for managing current view: 'home', 'sell', or 'productPromotions'
+            const [currentView, setCurrentView] = useState('home');
+            // State for the product selected for sale
+            const [selectedProduct, setSelectedProduct] = useState(null);
+            // State for the unit price of the selected promotion (in USD)
+            const [selectedUnitPrice, setSelectedUnitPrice] = useState('');
+            // State for the quantity of products the customer wants to buy
+            const [quantity, setQuantity] = useState(1); // Default quantity is 1
+            // State for the user ID or phone number
+            const [targetId, setTargetId] = useState('');
+            // State for the selected payment method (stores the name string)
+            const [paymentMethod, setPaymentMethod] = useState('');
+            // State for the payment reference number
+            const [referenceNumber, setReferenceNumber] = useState('');
+            // State to show a success message after a sale
+            const [successMessage, setSuccessMessage] = useState('');
+            // State to store a list of simulated sales
+            const [salesHistory, setSalesHistory] = useState([]);
+            // State for the current USD to VES exchange rate
+            const [exchangeRate, setExchangeRate] = useState(null);
+
+            // Calculate the total amount in USD based on unit price and quantity
+            const totalAmountUSD = (parseFloat(selectedUnitPrice) * quantity).toFixed(2);
+
+            // Fetch exchange rate from a public API
+            useEffect(() => {
+                const fetchExchangeRate = async () => {
+                    try {
+                        // Using ExchangeRate-API for a general USD to VES rate.
+                        // Note: This might not be the exact official BCV rate, but a general market rate.
+                        const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+                        const data = await response.json();
+                        if (data && data.rates && data.rates.VES) {
+                            setExchangeRate(data.rates.VES);
+                        } else {
+                            console.error('Failed to fetch VES exchange rate:', data);
+                            setExchangeRate(null); // Set to null or a default if fetch fails
+                        }
+                    } catch (error) {
+                        console.error('Error fetching exchange rate:', error);
+                        setExchangeRate(null); // Set to null or a default on error
+                    }
+                };
+
+                fetchExchangeRate(); // Fetch rate initially when component mounts
+
+                // Set up an interval to refresh the exchange rate every minute (60000 ms)
+                const intervalId = setInterval(fetchExchangeRate, 60000);
+
+                // Cleanup function to clear the interval when the component unmounts
+                return () => clearInterval(intervalId);
+            }, []); // Empty dependency array ensures this effect runs only once on mount
+
+            // Product data with integrated promotion arrays
+            const products = [
+                {
+                    id: 'freefire',
+                    name: 'Recargas Free Fire',
+                    type: 'Juego',
+                    // Updated image URL to a public placeholder
+                    image : 'portadas-productos-03-1080x1080.png',
+                    promotions: [
+                        { id: 'ff_promo1', price: 1.20,  description: '100+10 Diamantes',   image: 'portadas-productos-03-1080x1080.png' },
+                        { id: 'ff_promo2', price: 2.40,  description: '200+20 Diamantes',   image: 'portadas-productos-03-1080x1080.png' },
+                        { id: 'ff_promo3', price: 3.60,  description: '310+31 Diamantes',   image: 'portadas-productos-03-1080x1080.png' },
+                        { id: 'ff_promo4', price: 12.00, description: '1060+106 Diamantes', image: 'portadas-productos-03-1080x1080.png' },
+                        { id: 'ff_promo5', price: 24.00, description: '2180+218 Diamantes', image: 'portadas-productos-03-1080x1080.png' },
+                    ]
+                },
+                {
+                    id: 'Recargas de Movistar',
+                    name: 'Recargar Movistar',
+                    type: 'saldo',
+                    image: 'R.png',
+                    promotions: [
+                        { id: 'ml_promo1', price: 0.94,  description: 'Recarga 100 bs', image: 'R(1)(1).png' },
+                        { id: 'ml_promo2', price: 1.88,  description: 'Recarga 200 bs', image: 'R(1)(1).png' },
+                        { id: 'ml_promo3', price: 4.70,  description: 'Recarga 500 bs', image: 'R(1)(1).png' },
+                        { id: 'ml_promo4', price: 7.53,  description: 'Recarga 800 bs', image: 'R(1)(1).png' },
+                    ]
+                },
+                {
+                    id: 'Recargas de zinli',
+                    name: 'Recargar ZINLI',
+                    type: 'Billetera',
+                    image: 'OIP.jpg',
+                    promotions: [
+                        { id: 'pubg_promo1', price: 7.47,  description: '5.00 USD',   image: 'OIP.jpg' },
+                        { id: 'pubg_promo2', price: 28.11, description: '20.00 USD',  image: 'OIP.jpg' },
+                        { id: 'pubg_promo3', price: 25.00, description: '50.00 USD',  image: 'OIP.jpg' },
+                        { id: 'pubg_promo4', price: 30.00, description: '100.00 USD', image: 'OIP.jpg' },
+                    ]
+                },
+                {
+                    id: 'Recargas de Digitel',
+                    name: 'Recargar Digitel',
+                    type: 'Saldo',
+                    image: 'digitel-logo.png',
+                    promotions: [
+                        { id: 'cod_promo1', price: 1.08,  description: '120 bs', image: 'digitel-logo.png' },
+                        { id: 'cod_promo2', price: 2.17, description: '240 bs', image: 'digitel-logo.png' },
+                        { id: 'cod_promo3', price: 3.26, description: '360 bs', image: 'digitel-logo.png' },
+                    ]
+                },
+                {
+                    id: 'paypal',
+                    name: 'Recarga PayPal',
+                    type: 'Billetera',
+                    image: 'https://placehold.co/100x100/003087/FFFFFF?text=PayPal',
+                    promotions: [
+                        { id: 'paypal_promo1', price: 25.00, description: 'Recarga $25', image: 'https://placehold.co/200x150/003087/FFFFFF?text=RECARGA+PAYPAL+$25' },
+                        { id: 'paypal_promo2', price: 50.00, description: 'Recarga $50', image: 'https://placehold.co/200x150/003087/FFFFFF?text=RECARGA+PAYPAL+$50' },
+                        { id: 'paypal_promo3', price: 100.00, description: 'Recarga $100', image: 'https://placehold.co/200x150/003087/FFFFFF?text=RECARGA+PAYPAL+$100' },
+                    ]
+                },
+                {
+                    id: 'skrill',
+                    name: 'Recarga Skrill',
+                    type: 'Billetera',
+                    image: 'https://placehold.co/100x100/800080/FFFFFF?text=Skrill',
+                    promotions: [
+                        { id: 'skrill_promo1', price: 10.00, description: 'Recarga $10', image: 'https://placehold.co/200x150/800080/FFFFFF?text=RECARGA+SKRILL+$10' },
+                        { id: 'skrill_promo2', price: 30.00, description: 'Recarga $30', image: 'https://placehold.co/200x150/800080/FFFFFF?text=RECARGA+SKRILL+$30' },
+                        { id: 'skrill_promo3', price: 50.00, description: 'Recarga $50', image: 'https://placehold.co/200x150/800080/FFFFFF?text=RECARGA+SKRILL+$50' },
+                    ]
+                },
+            ];
+
+            // Available payment methods with their details
+            const paymentMethods = [
+                { name: 'Selecciona un método de pago', type: '', details: {} },
+                { name: 'Airtm',   type: 'email', details: { email: 'oyexon870@gmail.com' } },
+                { name: 'Binance', type: 'email', details: { email: 'oyexon870@gmail.com' } },
+                { name: 'Zinli',   type: 'email', details: { email: 'oyexon870@gmail.com' } },
+                { name: 'Pago Móvil', type: 'pago_movil', details: { cedula: 'V-30.703.203', telefono: '0424-3814698', banco: 'BNC' } },
+            ];
+
+            // Find the details of the currently selected payment method
+            const selectedMethodDetails = paymentMethods.find(pm => pm.name === paymentMethod);
+
+            // Function to handle product selection, switching to 'sell' view or 'productPromotions'
+            const handleSelectProduct = (product) => {
+                // Check if the product has promotions defined and if there are any promotions
+                if (product.promotions && product.promotions.length > 0) {
+                    setCurrentView('productPromotions'); // Go to the generic promotions view
+                    setSelectedProduct(product); // Keep the selected product in state
+                } else {
+                    setSelectedProduct(product);
+                    setCurrentView('sell'); // Go directly to sell view if no promotions
+                }
+                setSuccessMessage(''); // Clear any previous success message
+                setSelectedUnitPrice(''); // Clear unit price when selecting a new product
+                setQuantity(1); // Reset quantity to 1
+                setTargetId(''); // Clear target ID when selecting a new product
+                setPaymentMethod(''); // Clear payment method
+                setReferenceNumber(''); // Clear reference number
+            };
+
+            // Function to handle selection of any product promotion
+            const handleSelectPromotion = (promo) => { // Now accepts the full promo object
+                setSelectedUnitPrice(promo.price.toFixed(2)); // Set the unit price based on promotion
+                setQuantity(1); // Reset quantity to 1 when a new promotion is selected
+                setCurrentView('sell'); // Go to the sell view
+            };
+
+            // Function to handle sale (now always redirects to WhatsApp)
+            const handleSell = () => {
+                // Ensure all required fields are filled
+                if (
+                    !selectedProduct ||
+                    !selectedUnitPrice ||
+                    quantity <= 0 ||
+                    !targetId ||
+                    !paymentMethod ||
+                    paymentMethod === 'Selecciona un método de pago' ||
+                    !referenceNumber // Reference number is always required for these methods
+                ) {
+                    setSuccessMessage('Por favor, completa todos los campos (cantidad, ID/número, método de pago y número de referencia).');
+                    return;
+                }
+
+                // Construct the WhatsApp message with all details for any product
+                const whatsappMessage = `Hola, ya hice la recarga.
+Producto: ${selectedProduct.name}
+Monto: $${totalAmountUSD}
+ID/Número: ${targetId}
+Referencia: ${referenceNumber}`;
+                
+                const encodedMessage = encodeURIComponent(whatsappMessage);
+                // Direct link to the WhatsApp number
+                const whatsappNumber = '+584243069605'; // Updated WhatsApp number
+                const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+
+                // Open WhatsApp with the pre-filled message.
+                window.open(whatsappLink, '_blank');
+
+                // Set a success message instructing the user to share to the group
+                setSuccessMessage('¡Solicitud de recarga enviada! Se abrirá WhatsApp con el mensaje listo para enviar.');
+
+                // Store the sale in history for all products
+                const newSale = {
+                    id: Date.now(), // Unique ID for the sale
+                    productName: selectedProduct.name,
+                    unitPrice: parseFloat(selectedUnitPrice),
+                    quantity: quantity,
+                    amount: parseFloat(totalAmountUSD), // Store the calculated total amount in USD
+                    targetId: targetId,
+                    paymentMethod: paymentMethod, // Store the selected payment method
+                    referenceNumber: referenceNumber, // Store the reference number
+                    date: new Date().toLocaleString()
+                };
+                setSalesHistory([...salesHistory, newSale]); // Add sale to history
+
+                // Reset form fields and go back to home after a short delay
+                setSelectedUnitPrice('');
+                setQuantity(1);
+                setTargetId('');
+                setPaymentMethod('');
+                setReferenceNumber('');
+                setTimeout(() => {
+                    setCurrentView('home');
+                    setSelectedProduct(null);
+                    setSuccessMessage('');
+                }, 8000); // Increased delay to allow user to copy message
+            };
+
+            // Function to go back to the home view
+            const handleBackToHome = () => {
+                setCurrentView('home');
+                setSelectedProduct(null);
+                setSuccessMessage('');
+                setSelectedUnitPrice('');
+                setQuantity(1);
+                setTargetId('');
+                setPaymentMethod('');
+                setReferenceNumber('');
+            };
+
+            // Function to go back from product promotions to product selection
+            const handleBackToProductSelection = () => {
+                setCurrentView('home');
+                setSelectedProduct(null);
+                setSuccessMessage('');
+            };
+
+            return (
+                // Main container with responsive padding and background, and relative positioning for rate display
+                <div className="min-h-screen bg-gradient-to-br from-indigo-600 to-purple-800 flex flex-col items-center justify-center p-4 font-sans relative">
+
+                    {/* Exchange Rate Display in top-right corner */}
+                    {exchangeRate !== null ? (
+                        <div className="absolute top-4 right-4 bg-white p-3 rounded-lg shadow-md text-gray-800 font-bold text-sm">
+                            BCV: {exchangeRate.toFixed(2)} Bs
+                        </div>
+                    ) : (
+                        <div className="absolute top-4 right-4 bg-yellow-300 p-3 rounded-lg shadow-md text-gray-800 font-bold text-sm">
+                            Cargando tasa...
+                        </div>
+                    )}
+
+                    {/* Success message display */}
+                    {successMessage && (
+                        <div className="bg-green-500 text-white p-4 rounded-lg shadow-xl mb-6 text-center animate-fade-in-down whitespace-pre-wrap">
+                            {successMessage}
+                        </div>
+                    )}
+
+                    {/* Conditional rendering based on currentView state */}
+                    {currentView === 'home' && (
+                        <div className="w-full max-w-md bg-white rounded-xl shadow-2xl p-6 md:p-8">
+                            <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
+                                Selecciona un Producto
+                            </h2>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                {products.map((product) => (
+                                    <button
+                                        key={product.id}
+                                        onClick={() => handleSelectProduct(product)}
+                                        className="flex flex-col items-center p-4 bg-gray-100 rounded-lg shadow-md hover:bg-indigo-100 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75"
+                                    >
+                                        <img
+                                            src={product.image}
+                                            alt={product.name}
+                                            className="w-16 h-16 rounded-full mb-2 object-cover border-2 border-indigo-400"
+                                            onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/100x100/CCCCCC/000000?text=${product.name.split(' ')[1] || 'IMG'}`; }}
+                                        />
+                                        <span className="text-sm font-medium text-gray-700 text-center">
+                                            {product.name}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Sales History Section */}
+                            {salesHistory.length > 0 && (
+                                <div className="mt-8 pt-6 border-t border-gray-200">
+                                    <h3 className="text-xl font-semibold text-gray-800 mb-4 text-center">
+                                        Historial de Ventas
+                                    </h3>
+                                    <div className="max-h-60 overflow-y-auto bg-gray-50 p-4 rounded-lg shadow-inner">
+                                        {salesHistory.map((sale) => (
+                                            <div key={sale.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                                                <div className="flex flex-col">
+                                                    <span className="text-gray-700 font-medium">{sale.productName}</span>
+                                                    <span className="text-gray-500 text-sm">ID: {sale.targetId}</span>
+                                                    <span className="text-gray-500 text-xs">{sale.quantity} unidad/es</span>
+                                                    <span className="text-gray-500 text-xs">Método: {sale.paymentMethod}</span>
+                                                    {sale.referenceNumber && <span className="text-gray-500 text-xs">Ref: {sale.referenceNumber}</span>}
+                                                </div>
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-green-600 font-bold">
+                                                        ${sale.amount.toFixed(2)}
+                                                        {exchangeRate && ` (${(sale.amount * exchangeRate).toFixed(2)} Bs)`}
+                                                    </span>
+                                                    <span className="text-gray-400 text-xs">{sale.date}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {currentView === 'productPromotions' && selectedProduct && (
+                        <div className="w-full max-w-md bg-white rounded-xl shadow-2xl p-6 md:p-8">
+                            <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
+                                Promociones de {selectedProduct.name}
+                            </h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* Render promotions dynamically based on selectedProduct */}
+                                {selectedProduct.promotions.map((promo) => (
+                                    <button
+                                        key={promo.id}
+                                        onClick={() => handleSelectPromotion(promo)} // Pass the whole promo object
+                                        className="flex flex-col items-center p-4 bg-gray-100 rounded-lg shadow-md hover:bg-indigo-100 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75"
+                                    >
+                                        <img
+                                            src={promo.image}
+                                            alt={promo.description}
+                                            className="w-full h-32 object-cover rounded-lg mb-2 border-2 border-indigo-400"
+                                            onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/200x150/CCCCCC/000000?text=${promo.description}`; }}
+                                        />
+                                        {/* Display description first, then price with Bolivar equivalent */}
+                                        <span className="text-lg font-bold text-gray-800">
+                                            {promo.description}
+                                        </span>
+                                        <span className="text-sm text-gray-600">
+                                            ${promo.price.toFixed(2)}
+                                            {exchangeRate && ` (${(promo.price * exchangeRate).toFixed(2)} Bs)`}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="mt-6">
+                                <button
+                                    onClick={handleBackToProductSelection}
+                                    className="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-75"
+                                >
+                                    Volver a Productos
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {currentView === 'sell' && selectedProduct && (
+                        <div className="w-full max-w-md bg-white rounded-xl shadow-2xl p-6 md:p-8">
+                            <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
+                                Vender {selectedProduct.name}
+                            </h2>
+                            <div className="mb-4">
+                                <label htmlFor="quantity" className="block text-gray-700 text-sm font-bold mb-2">
+                                    Cantidad de Productos
+                                </label>
+                                <input
+                                    type="number"
+                                    id="quantity"
+                                    className="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                    placeholder="Ej: 1"
+                                    value={quantity}
+                                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} // Ensure quantity is at least 1
+                                    min="1"
+                                    step="1"
+                                />
+                                {/* Display unit price and total amount */}
+                                {selectedUnitPrice && (
+                                    <p className="text-gray-700 text-md mt-2">
+                                        Precio Unitario: <span className="font-semibold">${parseFloat(selectedUnitPrice).toFixed(2)}</span>
+                                    </p>
+                                )}
+                                {selectedUnitPrice && quantity > 0 && (
+                                    <p className="text-gray-800 text-lg mt-1 font-bold">
+                                        Total a Pagar: $ {totalAmountUSD}
+                                        {exchangeRate && ` (${(parseFloat(totalAmountUSD) * exchangeRate).toFixed(2)} Bs)`}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="mb-4">
+                                <label htmlFor="paymentMethod" className="block text-gray-700 text-sm font-bold mb-2">
+                                    Método de Pago
+                                </label>
+                                <select
+                                    id="paymentMethod"
+                                    className="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                    value={paymentMethod}
+                                    onChange={(e) => {
+                                        setPaymentMethod(e.target.value);
+                                        setReferenceNumber(''); // Clear reference number when method changes
+                                    }}
+                                >
+                                    {paymentMethods.map((method, index) => (
+                                        <option key={index} value={method.name} disabled={index === 0}>
+                                            {method.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Dynamic Payment Details Display */}
+                            {selectedMethodDetails && selectedMethodDetails.name !== 'Selecciona un método de pago' && (
+                                <div className="bg-gray-100 p-4 rounded-lg shadow-inner mb-4">
+                                    <h3 className="text-md font-semibold text-gray-700 mb-2">Datos para el Pago:</h3>
+                                    {selectedMethodDetails.type === 'email' && (
+                                        <p className="text-gray-600">
+                                            <span className="font-medium">Correo Electrónico:</span> {selectedMethodDetails.details.email}
+                                        </p>
+                                    )}
+                                    {selectedMethodDetails.type === 'pago_movil' && (
+                                        <>
+                                            <p className="text-gray-600">
+                                                <span className="font-medium">Cédula:</span> {selectedMethodDetails.details.cedula}
+                                            </p>
+                                            <p className="text-gray-600">
+                                                <span className="font-medium">Teléfono:</span> {selectedMethodDetails.details.telefono}
+                                            </p>
+                                            <p className="text-gray-600">
+                                                <span className="font-medium">Banco:</span> {selectedMethodDetails.details.banco}
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="mb-4">
+                                <label htmlFor="referenceNumber" className="block text-gray-700 text-sm font-bold mb-2">
+                                    Número de Referencia del Pago
+                                </label>
+                                <input
+                                    type="text"
+                                    id="referenceNumber"
+                                    className="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                    placeholder="Ej: 1234567890"
+                                    value={referenceNumber}
+                                    onChange={(e) => setReferenceNumber(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="mb-6">
+                                <label htmlFor="targetId" className="block text-gray-700 text-sm font-bold mb-2">
+                                    ID de Usuario / Número de Teléfono
+                                </label>
+                                <input
+                                    type="text"
+                                    id="targetId"
+                                    className="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                                    placeholder="Ej: 1234567890"
+                                    value={targetId}
+                                    onChange={(e) => setTargetId(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex flex-col space-y-4">
+                                <button
+                                    onClick={handleSell}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75"
+                                >
+                                    Realizar Venta
+                                </button>
+                                <button
+                                    onClick={handleBackToHome}
+                                    className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-75"
+                                >
+                                    Volver
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Render the App component into the 'root' div
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
